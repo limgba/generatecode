@@ -133,11 +133,11 @@ sub run
 	}
 	elsif ($type eq "s")
 	{
-		$runbase->($replace_s, $run_default);
+		$runbase->($match, $replace_s);
 	}
 	elsif ($type eq "i")
 	{
-		$runbase->($replace_i, $run_default);
+		$runbase->($match, $replace_i);
 	}
 	elsif ($type eq "d")
 	{
