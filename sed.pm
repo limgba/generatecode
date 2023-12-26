@@ -50,6 +50,12 @@ $run_getnum = sub
 	}
 };
 
+$add_match = sub
+{
+	$_match_count++;
+};
+
+
 my $runbase = sub
 {
 	my ($match_func, $run_special_func) = @_;
@@ -143,9 +149,14 @@ sub run
 	{
 		$runbase->($match, $run_d);
 	}
-	elsif ($type eq "m")
+	elsif ($type eq "n")
 	{
 		$runbase->($match, $run_getnum);
+	}
+	elsif ($type eq "n")
+	{
+		$_match_count = 0;
+		$runbase->($match, $add_match);
 	}
 	else
 	{
@@ -205,6 +216,13 @@ sub changeNum
 	open(outfile, ">$path") or die "can not write $path";
 	print outfile @file;
 	close(outfile);
+}
+
+sub matchCount
+{
+	my ($match_str, $path) = @_;
+	run(1, 0, "m", $match_str, "", $path);
+	return $_match_count;
 }
 
 sub writefile
