@@ -1,6 +1,9 @@
 #!/bin/perl
 
 package sed;
+require "match_lines.pm";
+
+$_match_lines = match_lines->new();
 
 $match_default = sub
 {
@@ -9,6 +12,47 @@ $match_default = sub
 
 $match = sub
 {
+	return $_ =~ /$match_str/;
+};
+
+$match_e = sub
+{
+	my $pair = $_match_lines->getPair();
+	my $match_line_begin = $pair->first();
+	if ($. > $match_line_begin)
+	{
+		return $_ =~ /$match_str/;
+	}
+	return 0;
+};
+
+$match_b1 = sub
+{
+	my $pair = $_match_lines->getPair();
+	my $match_line_begin = $pair->first();
+	my $match_line_end = $pair->second();
+	if ($. < $match_line_begin || $. > $match_line_end)
+	{
+		return 0;
+	}
+	return $_ =~ /$match_str/;
+};
+
+$match_e1 = $match_b1;
+
+$match_r = sub
+{
+	my $pair = $_match_lines->getPair();
+	my $match_line_begin = $pair->first();
+	my $match_line_end = $pair->second();
+	if ($. < $match_line_begin || $. > $match_line_end)
+	{
+		return 0;
+	}
+	if ($. == $match_line_end)
+	{
+		$_match_lines->addIndex();
+	}
 	return $_ =~ /$match_str/;
 };
 
@@ -31,6 +75,27 @@ $run_O = sub
 {
 	$_ = $new_str.$next_line.$_;
 };
+
+$run_b = sub
+{
+	my ($line) = @_;
+	$_match_lines->pushPair($line, 0);
+};
+
+$run_b1 = sub
+{
+	my ($line) = @_;
+	$_match_lines->setFirst($line);
+};
+
+$run_e = sub
+{
+	my ($line) = @_;
+	$_match_lines->setSecond($line);
+	$_match_lines->addIndex();
+};
+
+$run_e1 = $run_e;
 
 $run_default = sub
 {
@@ -74,7 +139,7 @@ my $runbase = sub
 			}
 			else
 			{
-				$run_special_func->();
+				$run_special_func->($.);
 			}
 		}
 		push @file, $_;
@@ -105,18 +170,26 @@ my $runbase = sub
 			return;
 		}
 
-		my $line = $change_line[$change_index];
 		my $file_size = @file;
-
-		if ($line < 0 || $line >= $file_size)
+		for ($i = $change_index; $i < $change_line_size; $i++)
 		{
-			print "line out of range index[$line] size[$file_size] line_offset[$line_offset] match_str[$match_str] path[$path]\n";
-			return;
-		}
+			my $line_index = $change_line[$i];
+			if ($line_index < 0 || $line_index >= $file_size)
+			{
+				print "line out of range index[$line_index] size[$file_size] line_offset[$line_offset] match_str[$match_str] path[$path]\n";
+				last;
+			}
 
-		$_ = $file[$line];
-		$run_special_func->();
-		$file[$line] = $_;
+			$_ = $file[$line_index];
+			my $line = $line_index + 1;
+			$run_special_func->($line);
+			$file[$line_index] = $_;
+
+			if ($total_match_count != 0)
+			{
+				last;
+			}
+		}
 	};
 	$change_line_func->();
 
@@ -129,38 +202,69 @@ sub run
 {
 	($total_match_count, $line_offset, $type, $match_str, $new_str, $path) = @_;
 
+	my $match_func = $match;
+	my $pair = $_match_lines->getPair();
+	if ($pair->first() > 0 && $pair->second() > 0)
+	{
+		$match_func = $match_r;
+	}
+
 	if ($type eq "a")
 	{
-		$runbase->($match, $run_a);
+		$runbase->($match_func, $run_a);
 	}
 	elsif ($type eq "O")
 	{
-		$runbase->($match, $run_O);
+		$runbase->($match_func, $run_O);
 	}
 	elsif ($type eq "s")
 	{
-		$runbase->($match, $replace_s);
+		$runbase->($match_func, $replace_s);
 	}
 	elsif ($type eq "i")
 	{
-		$runbase->($match, $replace_i);
+		$runbase->($match_func, $replace_i);
 	}
 	elsif ($type eq "d")
 	{
-		$runbase->($match, $run_d);
+		$runbase->($match_func, $run_d);
 	}
 	elsif ($type eq "n")
 	{
-		$runbase->($match, $run_getnum);
+		$runbase->($match_func, $run_getnum);
 	}
-	elsif ($type eq "n")
+	elsif ($type eq "m")
 	{
 		$_match_count = 0;
-		$runbase->($match, $add_match);
+		$runbase->($match_func, $add_match);
+	}
+	elsif ($type eq "b")
+	{
+		$_match_lines->clear();
+		$runbase->($match, $run_b);
+	}
+	elsif ($type eq "e")
+	{
+		$runbase->($match_e, $run_e);
+		$_match_lines->resetIndex();
+	}
+	elsif ($type eq "b1")
+	{
+		$runbase->($match_b1, $run_e1);
+	}
+	elsif ($type eq "e1")
+	{
+		$runbase->($match_e1, $run_e1);
+		$_match_lines->resetIndex();
 	}
 	else
 	{
 		$runbase->($match_default, $run_default);
+	}
+
+	if ($type ne "b" && $type ne "e" && $type ne "b1" && $type ne "e1" && $_match_lines->size() > 0)
+	{
+		$_match_lines->clear();
 	}
 }
 
