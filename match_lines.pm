@@ -81,5 +81,13 @@ sub setSecond
 	$pair->setSecond($second);
 }
 
+sub print
+{
+	my ($self) = @_;
+	my $pair = $self->getPair();
+	my $first = $pair->first();
+	my $second = $pair->second();
+	print "$self->{_index} $first $second\n";
+}
 
 1;

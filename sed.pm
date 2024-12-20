@@ -80,22 +80,35 @@ $run_b = sub
 {
 	my ($line) = @_;
 	$_match_lines->pushPair($line, 0);
+	print "run_b ";
+	$_match_lines->print();
 };
 
 $run_b1 = sub
 {
 	my ($line) = @_;
 	$_match_lines->setFirst($line);
+	print "run_b1 ";
+	$_match_lines->print();
 };
 
 $run_e = sub
 {
 	my ($line) = @_;
 	$_match_lines->setSecond($line);
+	print "run_e ";
+	$_match_lines->print();
 	$_match_lines->addIndex();
 };
 
-$run_e1 = $run_e;
+$run_e1 = sub
+{
+	my ($line) = @_;
+	$_match_lines->setSecond($line);
+	print "run_e1 ";
+	$_match_lines->print();
+	$_match_lines->addIndex();
+};
 
 $run_default = sub
 {
@@ -250,7 +263,7 @@ sub run
 	}
 	elsif ($type eq "b1")
 	{
-		$runbase->($match_b1, $run_e1);
+		$runbase->($match_b1, $run_b1);
 	}
 	elsif ($type eq "e1")
 	{
